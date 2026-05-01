@@ -12,7 +12,7 @@ class TestHealthEndpoint:
 
     def test_health_response_format(self):
         data = client.get("/health").json()
-        assert data["status"] == "healthy"
+        assert data["status"] == "ok"
         assert "model_loaded" in data
 
 class TestKPIEndpoint:

@@ -7,10 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  # ─── Job 1: Lint & Test ───────────────────────────────────────────────
+  # ─── Job 1: Generate Data, Train Model & Test ─────────────────────────
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,6 +25,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Generate data & train model
+        run: |
+          python setup.py
 
       - name: Run unit tests
         run: |
@@ -48,25 +52,9 @@ jobs:
 
       - name: Test Docker health
         run: |
-          # Create dummy model dir so container starts
-          mkdir -p models
           docker run -d --name test_api \
             -p 8000:8000 \
             ecommerce-intelligence:latest || true
           sleep 5
-          # Health check (allow failure if no model)
           curl -f http://localhost:8000/health || echo "API started (no model loaded)"
           docker stop test_api || true
-
-      # ─── Optional: Push to Docker Hub ─────────────────────────────────
-      # Uncomment and add DOCKER_USERNAME / DOCKER_PASSWORD secrets
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKER_USERNAME }}
-      #     password: ${{ secrets.DOCKER_PASSWORD }}
-      #
-      # - name: Push to Docker Hub
-      #   run: |
-      #     docker tag ecommerce-intelligence:latest ${{ secrets.DOCKER_USERNAME }}/ecommerce-intelligence:latest
-      #     docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-intelligence:latest

@@ -1,6 +1,6 @@
 """
 FastAPI service for E-commerce Growth Intelligence Platform.
-All endpoints return real data from SQLite + ML artifacts.
+All endpoints return real data from CSV files + ML artifacts.
 """
 import os, sys, json, pickle, threading
 import numpy as np
@@ -30,7 +30,10 @@ if os.path.isdir(ARTIFACTS_DIR):
 
 @app.get("/", include_in_schema=False)
 def serve_dashboard():
-    return FileResponse(os.path.join(DASHBOARD_DIR, "index.html"))
+    index_path = os.path.join(DASHBOARD_DIR, "index.html")
+    if not os.path.exists(index_path):
+        raise HTTPException(404, "Dashboard not found. Ensure dashboard/index.html exists.")
+    return FileResponse(index_path)
 
 # ─── Data Cache ─────────────────────────────────────────────────────────────
 _cache = {}
@@ -44,7 +47,11 @@ def _load_data():
              "sellers": "olist_sellers_dataset.csv", "categories": "product_category_name_translation.csv"}
     for key, fn in files.items():
         p = os.path.join(str(DATA_DIR), fn)
-        _cache[key] = pd.read_csv(p) if os.path.exists(p) else pd.DataFrame()
+        if os.path.exists(p):
+            _cache[key] = pd.read_csv(p)
+        else:
+            logger.warning("Data file not found: %s", p)
+            _cache[key] = pd.DataFrame()
     if not _cache["orders"].empty:
         _cache["orders"]["order_purchase_timestamp"] = pd.to_datetime(_cache["orders"]["order_purchase_timestamp"])
         _cache["orders"]["order_delivered_customer_date"] = pd.to_datetime(_cache["orders"]["order_delivered_customer_date"], errors="coerce")
@@ -63,7 +70,7 @@ def _load_model():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "model_loaded": bool(_load_model())}
+    return {"status": "ok", "model_loaded": bool(_load_model())}
 
 # ─── PAGE 1: Overview ───────────────────────────────────────────────────────
 
@@ -71,7 +78,7 @@ def health():
 def get_kpis():
     d = _load_data()
     orders, payments, customers, reviews = d["orders"], d["payments"], d["customers"], d["reviews"]
-    if orders.empty: raise HTTPException(404, "No data")
+    if orders.empty: raise HTTPException(404, "No data — run python setup.py first")
     delivered = orders[orders["order_status"] == "delivered"]
     rev_pay = payments.merge(delivered[["order_id"]], on="order_id")
     total_rev = float(rev_pay["payment_value"].sum())
@@ -79,7 +86,6 @@ def get_kpis():
     unique_cust = int(delivered.merge(customers, on="customer_id")["customer_unique_id"].nunique())
     aov = total_rev / total_orders if total_orders else 0
     avg_review = float(reviews["review_score"].mean()) if not reviews.empty else 0
-    # Late delivery rate
     has_dates = delivered.dropna(subset=["order_delivered_customer_date", "order_estimated_delivery_date"])
     late = has_dates[has_dates["order_delivered_customer_date"] > has_dates["order_estimated_delivery_date"]]
     late_pct = len(late) / len(has_dates) * 100 if len(has_dates) > 0 else 0
@@ -90,6 +96,7 @@ def get_kpis():
 @app.get("/api/revenue_trend")
 def get_revenue_trend():
     d = _load_data()
+    if d["orders"].empty: return []
     delivered = d["orders"][d["orders"]["order_status"] == "delivered"]
     merged = delivered.merge(d["payments"], on="order_id")
     merged["month"] = merged["order_purchase_timestamp"].dt.to_period("M").astype(str)
@@ -100,6 +107,7 @@ def get_revenue_trend():
 @app.get("/api/top_states")
 def get_top_states():
     d = _load_data()
+    if d["orders"].empty: return []
     delivered = d["orders"][d["orders"]["order_status"] == "delivered"]
     m = delivered.merge(d["customers"], on="customer_id").merge(d["payments"], on="order_id")
     sr = m.groupby("customer_state")["payment_value"].sum().nlargest(10).reset_index()
@@ -126,6 +134,7 @@ def get_categories():
 @app.get("/api/payments")
 def get_payments():
     d = _load_data()
+    if d["orders"].empty: return []
     delivered = d["orders"][d["orders"]["order_status"] == "delivered"]
     pd2 = d["payments"].merge(delivered[["order_id"]], on="order_id")
     dist = pd2.groupby("payment_type")["payment_value"].sum().reset_index()
@@ -136,6 +145,7 @@ def get_payments():
 @app.get("/api/orders_table")
 def get_orders_table():
     d = _load_data()
+    if d["orders"].empty: return []
     orders = d["orders"].sort_values("order_purchase_timestamp", ascending=False).head(20)
     merged = orders.merge(d["customers"], on="customer_id", how="left")
     merged = merged.merge(d["payments"], on="order_id", how="left")
@@ -151,6 +161,7 @@ def get_orders_table():
 @app.get("/api/cohort")
 def get_cohort():
     d = _load_data()
+    if d["orders"].empty: return []
     orders = d["orders"][d["orders"]["order_status"] == "delivered"]
     merged = orders.merge(d["customers"], on="customer_id")
     merged["order_month"] = merged["order_purchase_timestamp"].dt.to_period("M")
@@ -161,7 +172,6 @@ def get_cohort():
     cohort = merged.groupby(["cohort_month", "month_offset"])["customer_unique_id"].nunique().reset_index()
     cohort.columns = ["cohort_month", "month_offset", "customers"]
     cohort["cohort_month"] = cohort["cohort_month"].astype(str)
-    # Limit to first 6 months and most recent 8 cohorts
     cohort = cohort[cohort["month_offset"] <= 5]
     top_cohorts = sorted(cohort["cohort_month"].unique())[-8:]
     cohort = cohort[cohort["cohort_month"].isin(top_cohorts)]
@@ -170,6 +180,7 @@ def get_cohort():
 @app.get("/api/sellers")
 def get_sellers():
     d = _load_data()
+    if d["order_items"].empty: return []
     items = d["order_items"]
     reviews = d["reviews"]
     orders = d["orders"][d["orders"]["order_status"] == "delivered"]
@@ -177,10 +188,10 @@ def get_sellers():
     m = m.merge(reviews, on="order_id", how="left")
     s = m.groupby("seller_id").agg(revenue=("price", "sum"), orders=("order_id", "nunique"),
                                     avg_review=("review_score", "mean")).reset_index()
-    s = s[s["orders"] >= 5]  # Only sellers with 5+ orders
-    # Late delivery rate per seller
+    s = s[s["orders"] >= 5]
     order_items_orders = items.merge(orders[["order_id", "order_delivered_customer_date", "order_estimated_delivery_date"]], on="order_id")
     has_dates = order_items_orders.dropna(subset=["order_delivered_customer_date", "order_estimated_delivery_date"])
+    has_dates = has_dates.copy()
     has_dates["is_late"] = has_dates["order_delivered_customer_date"] > has_dates["order_estimated_delivery_date"]
     late_rate = has_dates.groupby("seller_id")["is_late"].mean().reset_index()
     late_rate.columns = ["seller_id", "late_rate"]
@@ -193,6 +204,7 @@ def get_sellers():
 @app.get("/api/rfm")
 def get_rfm():
     d = _load_data()
+    if d["orders"].empty: return []
     orders = d["orders"][d["orders"]["order_status"] == "delivered"]
     merged = orders.merge(d["customers"], on="customer_id").merge(d["payments"], on="order_id")
     ref = merged["order_purchase_timestamp"].max()
@@ -219,6 +231,7 @@ def get_rfm():
 @app.get("/api/cumulative_revenue")
 def get_cumulative():
     d = _load_data()
+    if d["orders"].empty: return []
     delivered = d["orders"][d["orders"]["order_status"] == "delivered"]
     merged = delivered.merge(d["payments"], on="order_id")
     merged["month"] = merged["order_purchase_timestamp"].dt.to_period("M").astype(str)
@@ -262,6 +275,7 @@ def get_churn_customers():
     features = [c for c in df.columns if c != "is_churned"]
     X = df[features]
     probas = md["model"].predict_proba(X)[:, 1]
+    df = df.copy()
     df["churn_probability"] = probas
     df["risk_level"] = pd.cut(probas, bins=[0, 0.4, 0.7, 1.0], labels=["LOW", "MEDIUM", "HIGH"])
     high_risk = df.nlargest(20, "churn_probability")
@@ -269,7 +283,8 @@ def get_churn_customers():
     for i, (_, r) in enumerate(high_risk.iterrows()):
         result.append({"customer_rank": i + 1, "churn_probability": round(float(r["churn_probability"]), 4),
                        "risk_level": str(r["risk_level"]), "frequency": int(r["frequency"]),
-                       "monetary": round(float(r["monetary"]), 2), "recency_days": int(r["recency_days"])})
+                       "monetary": round(float(r["monetary"]), 2),
+                       "avg_days_between_orders": round(float(r["avg_days_between_orders"]), 1)})
     return result
 
 @app.get("/api/churn/distribution")
@@ -297,16 +312,19 @@ class CustomerFeatures(BaseModel):
     payment_type_count: int = Field(..., ge=1)
     avg_review_score: float = Field(3.0, ge=1, le=5)
     review_count: int = Field(0, ge=0)
-    recency_days: int = Field(..., ge=0)
     tenure_days: int = Field(0, ge=0)
+    avg_days_between_orders: float = Field(90.0, ge=0)
     state_encoded: int = Field(0, ge=0)
 
 @app.post("/api/churn/predict")
 def predict_churn(customer: CustomerFeatures):
     md = _load_model()
-    if not md: raise HTTPException(503, "Model not loaded.")
+    if not md: raise HTTPException(503, "Model not loaded. Run setup.py first.")
     features = customer.model_dump()
-    df = pd.DataFrame([features])[md["feature_names"]]
+    try:
+        df = pd.DataFrame([features])[md["feature_names"]]
+    except KeyError as e:
+        raise HTTPException(422, f"Feature mismatch: {e}. Model expects: {md['feature_names']}")
     proba = float(md["model"].predict_proba(df)[0][1])
     return {"churn_probability": round(proba, 4), "is_churned": proba >= 0.5,
             "risk_level": "HIGH" if proba >= 0.7 else "MEDIUM" if proba >= 0.4 else "LOW"}
@@ -316,7 +334,7 @@ def predict_churn(customer: CustomerFeatures):
 @app.get("/api/optuna_trials")
 def get_optuna_trials():
     path = os.path.join(ARTIFACTS_DIR, "optuna_trials.json")
-    if not os.path.exists(path): raise HTTPException(404, "No trial history found")
+    if not os.path.exists(path): raise HTTPException(404, "No trial history found. Run setup.py first.")
     with open(path) as f: return json.load(f)
 
 @app.post("/api/retrain")

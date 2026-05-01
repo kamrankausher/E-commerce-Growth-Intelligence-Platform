@@ -32,7 +32,7 @@ if(!r.ok)throw new Error(r.status);
 return r.json();}
 
 function animateNum(el,target,prefix='',suffix='',dec=0){
-let start=0;const dur=800;const t0=performance.now();
+let start=0;const dur=1500;const t0=performance.now();
 function step(t){const p=Math.min((t-t0)/dur,1);
 const v=start+(target-start)*p;
 el.textContent=prefix+(dec?v.toFixed(dec):Math.round(v).toLocaleString())+suffix;
@@ -216,16 +216,16 @@ document.getElementById('powerResult').innerHTML=n.toLocaleString()+'<span>sampl
 
 // PAGE 4
 const sliderDefs=[
-{id:'frequency',label:'Purchase Frequency',min:1,max:20,val:2,step:1},
-{id:'monetary',label:'Total Spend (R$)',min:10,max:5000,val:250,step:10},
-{id:'avg_order_value',label:'Avg Order Value',min:10,max:500,val:125,step:5},
-{id:'avg_installments',label:'Avg Installments',min:1,max:12,val:2,step:1},
-{id:'payment_type_count',label:'Payment Methods',min:1,max:5,val:1,step:1},
-{id:'avg_review_score',label:'Avg Review Score',min:1,max:5,val:4,step:0.1},
-{id:'review_count',label:'Reviews Given',min:0,max:20,val:2,step:1},
-{id:'recency_days',label:'Recency (days)',min:0,max:365,val:60,step:1},
-{id:'tenure_days',label:'Tenure (days)',min:0,max:730,val:90,step:1},
-{id:'state_encoded',label:'State Code',min:0,max:26,val:12,step:1}];
+{id:'frequency',label:'Purchase Frequency',min:1,max:20,val:3,step:1,icon:'🛒'},
+{id:'monetary',label:'Total Spend (R$)',min:10,max:5000,val:350,step:10,icon:'💰'},
+{id:'avg_order_value',label:'Avg Order Value',min:10,max:500,val:125,step:5,icon:'📦'},
+{id:'avg_installments',label:'Avg Installments',min:1,max:12,val:3,step:1,icon:'💳'},
+{id:'payment_type_count',label:'Payment Methods',min:1,max:5,val:1,step:1,icon:'🔄'},
+{id:'avg_review_score',label:'Avg Review Score',min:1,max:5,val:4,step:0.1,icon:'⭐'},
+{id:'review_count',label:'Reviews Given',min:0,max:20,val:2,step:1,icon:'📝'},
+{id:'tenure_days',label:'Tenure (days)',min:0,max:730,val:180,step:1,icon:'📅'},
+{id:'avg_days_between_orders',label:'Avg Days Between Orders',min:1,max:365,val:60,step:1,icon:'⏱️'},
+{id:'state_encoded',label:'State Code',min:0,max:26,val:12,step:1,icon:'🗺️'}];
 
 async function loadChurn(){
 try{const d=await api('/api/churn/model_info');
@@ -264,25 +264,33 @@ scales:{y:{grid:{color:C.border}},x:{grid:{display:false}}}}});}catch(e){}
 try{const d=await api('/api/churn/customers');
 const tb=document.getElementById('riskBody');tb.innerHTML='';
 d.forEach(r=>{
-tb.innerHTML+=`<tr><td>${r.customer_rank}</td><td><div class="prob-bar" style="width:80px;display:inline-block;vertical-align:middle;margin-right:6px"><div class="prob-bar-fill" style="width:${r.churn_probability*100}%;background:${r.risk_level==='HIGH'?C.danger:C.warning}"></div></div>${(r.churn_probability*100).toFixed(1)}%</td><td><span class="risk-badge risk-${r.risk_level}" style="padding:2px 8px;font-size:10px">${r.risk_level}</span></td><td>${r.frequency}</td><td>R$ ${r.monetary.toLocaleString()}</td><td>${r.recency_days}</td></tr>`;});}catch(e){}
+tb.innerHTML+=`<tr><td>${r.customer_rank}</td><td><div class="prob-bar" style="width:80px;display:inline-block;vertical-align:middle;margin-right:6px"><div class="prob-bar-fill" style="width:${r.churn_probability*100}%;background:${r.risk_level==='HIGH'?C.danger:C.warning}"></div></div>${(r.churn_probability*100).toFixed(1)}%</td><td><span class="badge ${r.risk_level==='HIGH'?'badge-canceled':r.risk_level==='MEDIUM'?'badge-processing':'badge-delivered'}">${r.risk_level}</span></td><td>${r.frequency}</td><td>R$ ${r.monetary.toLocaleString()}</td><td>${r.avg_days_between_orders}</td></tr>`;});}catch(e){}
 
-// Build prediction sliders
+// Build premium prediction feature cards
 const sp=document.getElementById('predictSliders');sp.innerHTML='';
 sliderDefs.forEach(s=>{
-sp.innerHTML+=`<div class="slider-row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label>${s.label}</label><span class="slider-val" id="sv-${s.id}">${s.val}</span></div><input type="range" id="sl-${s.id}" min="${s.min}" max="${s.max}" value="${s.val}" step="${s.step}" oninput="document.getElementById('sv-${s.id}').textContent=this.value"></div>`;});}
+sp.innerHTML+=`<div class="feature-card"><div class="feature-card-header"><span class="feature-card-name"><span class="f-icon">${s.icon}</span>${s.label}</span><span class="feature-card-val" id="sv-${s.id}">${s.val}</span></div><input type="range" id="sl-${s.id}" min="${s.min}" max="${s.max}" value="${s.val}" step="${s.step}" oninput="document.getElementById('sv-${s.id}').textContent=this.value"></div>`;});}
 
 async function doPrediction(){
+const btn=document.getElementById('predictBtn');
+btn.disabled=true;btn.innerHTML='<span class="btn-spark">⏳</span> Predicting...';
 const body={};
 sliderDefs.forEach(s=>{body[s.id]=parseFloat(document.getElementById('sl-'+s.id).value);});
 try{
 const r=await fetch(API+'/api/churn/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const d=await r.json();
 const pct=(d.churn_probability*100).toFixed(1);
-document.getElementById('gaugeVal').textContent=pct+'%';
-document.getElementById('gaugeVal').style.color=d.risk_level==='HIGH'?C.danger:d.risk_level==='MEDIUM'?C.warning:C.success;
+const maxDash=534; // circumference of gauge ring
+const arc=document.getElementById('gaugeArc');
+arc.setAttribute('stroke-dasharray',`${maxDash*d.churn_probability} ${maxDash}`);
+const gv=document.getElementById('gaugeVal');
+gv.textContent=pct+'%';
+gv.style.color=d.risk_level==='HIGH'?C.danger:d.risk_level==='MEDIUM'?C.warning:C.success;
 const rb=document.getElementById('riskBadge');
-rb.textContent=d.risk_level+' RISK';rb.className='risk-badge risk-'+d.risk_level;rb.style.visibility='visible';
-}catch(e){document.getElementById('gaugeVal').textContent='ERR';}}
+rb.textContent=d.risk_level+' RISK';
+rb.className='gauge-risk-badge '+d.risk_level;
+}catch(e){document.getElementById('gaugeVal').textContent='ERR';}
+btn.disabled=false;btn.innerHTML='<span class="btn-spark">⚡</span> Predict Churn';}
 
 // PAGE 5
 async function loadML(){

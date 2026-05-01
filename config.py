@@ -27,7 +27,7 @@ API_PORT = int(os.getenv("API_PORT", 8000))
 # ─── Model Defaults ─────────────────────────────────────────────────────────
 RANDOM_SEED = 42
 TEST_SIZE = 0.2
-OPTUNA_N_TRIALS = 25
+OPTUNA_N_TRIALS = 50
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

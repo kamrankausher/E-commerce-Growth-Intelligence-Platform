@@ -1,17 +1,21 @@
 """
-Feature engineering for churn prediction.
+Feature engineering for churn prediction — LEAK-FREE temporal split.
 
-Builds customer-level features from the Olist CSV dataset using Pandas.
+Uses a proper temporal split to prevent data leakage:
+  - Observation window: all orders BEFORE cutoff_date
+  - Prediction window: last 90 days of dataset
+  - Features computed from observation window ONLY
+  - Churn label: 1 if customer made NO purchase in prediction window
+
 Features created:
-  - Recency (days since last purchase)
-  - Frequency (total orders)
+  - Frequency (total orders in observation window)
   - Monetary (total spend)
   - Average order value
   - Average review score
-  - Average delivery time
-  - Payment diversity
+  - Avg installments, payment diversity
+  - Tenure (days between first and last purchase)
+  - Avg days between orders (temporal pattern)
   - State (geographic feature)
-  - Churn label (1 if no purchase in last 90 days of dataset)
 """
 import os
 import sys
@@ -23,13 +27,17 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+CHURN_WINDOW_DAYS = 90  # prediction window length
+
 
 def build_features_from_csv(data_dir: str) -> pd.DataFrame:
     """
-    Build customer-level features from CSV files (no database required).
+    Build customer-level features using temporal split (no data leakage).
 
-    Args:
-        data_dir: Path to directory containing Olist CSV files.
+    The dataset is split temporally:
+      - Observation: orders before (max_date - CHURN_WINDOW_DAYS)
+      - Prediction:  orders after that cutoff
+      - Churn = 1 if customer has NO orders in the prediction window
 
     Returns:
         DataFrame with engineered features and churn label.
@@ -41,27 +49,39 @@ def build_features_from_csv(data_dir: str) -> pd.DataFrame:
     payments = pd.read_csv(os.path.join(data_dir, "olist_order_payments_dataset.csv"))
     reviews = pd.read_csv(os.path.join(data_dir, "olist_order_reviews_dataset.csv"))
 
-    # Parse timestamps
     orders["order_purchase_timestamp"] = pd.to_datetime(orders["order_purchase_timestamp"])
-
-    # Filter to delivered orders only
     delivered = orders[orders["order_status"] == "delivered"].copy()
 
-    # Merge customer info
-    merged = delivered.merge(customers, on="customer_id", how="left")
+    # ─── Temporal split ───
+    reference_date = delivered["order_purchase_timestamp"].max()
+    cutoff_date = reference_date - pd.Timedelta(days=CHURN_WINDOW_DAYS)
 
-    # ─── Aggregated features per customer ───
-    agg = merged.groupby("customer_unique_id").agg(
+    obs_orders = delivered[delivered["order_purchase_timestamp"] <= cutoff_date].copy()
+    pred_orders = delivered[delivered["order_purchase_timestamp"] > cutoff_date].copy()
+
+    logger.info("Temporal split — Observation: %d orders, Prediction: %d orders",
+                len(obs_orders), len(pred_orders))
+
+    # Merge customer info into observation orders
+    obs_merged = obs_orders.merge(customers, on="customer_id", how="left")
+
+    # Only customers who have at least 1 order in observation window
+    if obs_merged.empty:
+        raise ValueError("No orders in observation window — check data dates")
+
+    # ─── Aggregated features from OBSERVATION window only ───
+    agg = obs_merged.groupby("customer_unique_id").agg(
         customer_state=("customer_state", "first"),
         frequency=("order_id", "nunique"),
-        last_purchase=("order_purchase_timestamp", "max"),
+        last_obs_purchase=("order_purchase_timestamp", "max"),
         first_purchase=("order_purchase_timestamp", "min"),
     ).reset_index()
 
-    # Payment features
-    pay_merged = delivered[["order_id"]].merge(payments, on="order_id", how="left")
+    # Payment features (observation window only)
+    obs_order_ids = obs_orders[["order_id"]].drop_duplicates()
+    pay_merged = obs_order_ids.merge(payments, on="order_id", how="left")
     pay_merged = pay_merged.merge(
-        merged[["order_id", "customer_unique_id"]].drop_duplicates(),
+        obs_merged[["order_id", "customer_unique_id"]].drop_duplicates(),
         on="order_id", how="left"
     )
     pay_agg = pay_merged.groupby("customer_unique_id").agg(
@@ -71,10 +91,10 @@ def build_features_from_csv(data_dir: str) -> pd.DataFrame:
         payment_type_count=("payment_type", "nunique"),
     ).reset_index()
 
-    # Review features
-    rev_merged = delivered[["order_id"]].merge(reviews, on="order_id", how="left")
+    # Review features (observation window only)
+    rev_merged = obs_order_ids.merge(reviews, on="order_id", how="left")
     rev_merged = rev_merged.merge(
-        merged[["order_id", "customer_unique_id"]].drop_duplicates(),
+        obs_merged[["order_id", "customer_unique_id"]].drop_duplicates(),
         on="order_id", how="left"
     )
     rev_agg = rev_merged.groupby("customer_unique_id").agg(
@@ -90,45 +110,44 @@ def build_features_from_csv(data_dir: str) -> pd.DataFrame:
     df["avg_review_score"] = df["avg_review_score"].fillna(3.0)
     df["review_count"] = df["review_count"].fillna(0)
 
-    return _compute_derived_features(df)
-
-
-def _compute_derived_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute recency, tenure, and churn label."""
-
-    df["last_purchase"] = pd.to_datetime(df["last_purchase"])
+    # ─── Derived features (from observation window only) ───
+    df["last_obs_purchase"] = pd.to_datetime(df["last_obs_purchase"])
     df["first_purchase"] = pd.to_datetime(df["first_purchase"])
 
-    # Reference date = max date in dataset
-    reference_date = df["last_purchase"].max()
+    # Tenure: span of customer activity in observation window
+    df["tenure_days"] = (df["last_obs_purchase"] - df["first_purchase"]).dt.days
 
-    # Recency = days since last purchase
-    df["recency_days"] = (reference_date - df["last_purchase"]).dt.days
+    # Average days between orders (temporal regularity signal — NOT leaking)
+    df["avg_days_between_orders"] = df.apply(
+        lambda r: r["tenure_days"] / (r["frequency"] - 1) if r["frequency"] > 1 else 365.0,
+        axis=1
+    )
 
-    # Tenure = days between first and last purchase
-    df["tenure_days"] = (df["last_purchase"] - df["first_purchase"]).dt.days
+    # ─── Churn label (from PREDICTION window) ───
+    pred_merged = pred_orders.merge(customers, on="customer_id", how="left")
+    active_in_pred = set(pred_merged["customer_unique_id"].unique())
+    df["is_churned"] = (~df["customer_unique_id"].isin(active_in_pred)).astype(int)
 
-    # ─── Churn label ───
-    # Customer is "churned" if they haven't purchased in the last 90 days
-    churn_threshold = 90
-    df["is_churned"] = (df["recency_days"] > churn_threshold).astype(int)
-
-    # Encode state as numeric (label encoding)
+    # Encode state
     df["state_encoded"] = df["customer_state"].astype("category").cat.codes
 
-    # Drop non-feature columns
+    # Final feature set — NO recency_days (that was the leakage source)
     feature_cols = [
         "frequency", "monetary", "avg_order_value", "avg_installments",
         "payment_type_count", "avg_review_score", "review_count",
-        "recency_days", "tenure_days", "state_encoded", "is_churned"
+        "tenure_days", "avg_days_between_orders", "state_encoded", "is_churned"
     ]
     result = df[feature_cols].copy()
     result = result.dropna()
 
+    churn_rate = result["is_churned"].mean() * 100
     logger.info(
-        "Features built: %d customers, churn rate=%.1f%%",
-        len(result), result["is_churned"].mean() * 100
+        "Features built: %d customers, churn rate=%.1f%% (target: 15-35%%)",
+        len(result), churn_rate
     )
+    if churn_rate < 10 or churn_rate > 50:
+        logger.warning("⚠️ Churn rate %.1f%% is outside realistic range!", churn_rate)
+
     return result
 
 
@@ -138,3 +157,4 @@ if __name__ == "__main__":
     print(df.head(10))
     print(f"\nShape: {df.shape}")
     print(f"Churn rate: {df['is_churned'].mean():.2%}")
+    print(f"Features: {[c for c in df.columns if c != 'is_churned']}")

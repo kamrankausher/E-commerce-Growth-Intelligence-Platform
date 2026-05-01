@@ -93,19 +93,46 @@ a{color:var(--primary);text-decoration:none}
 .prob-bar{height:6px;border-radius:3px;background:var(--card);overflow:hidden}
 .prob-bar-fill{height:100%;border-radius:3px;transition:width .3s}
 
-.predict-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-top:16px}
-.predict-grid{display:grid;grid-template-columns:1fr 300px;gap:24px}
-.predict-sliders{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.predict-result{text-align:center;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.gauge-value{font-size:48px;font-weight:600;margin-bottom:4px}
-.gauge-label{font-size:12px;color:var(--text3)}
-.risk-badge{padding:6px 20px;border-radius:20px;font-size:13px;font-weight:600;margin-top:12px;display:inline-block}
-.risk-LOW{background:rgba(16,185,129,.15);color:var(--success)}
-.risk-MEDIUM{background:rgba(245,158,11,.15);color:var(--warning)}
-.risk-HIGH{background:rgba(239,68,68,.15);color:var(--danger)}
-.predict-btn{margin-top:16px;padding:10px 28px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
-.predict-btn:hover{background:#5558e6;transform:scale(1.02)}
-.predict-btn:active{transform:scale(.97)}
+/* ═══ PREMIUM PREDICTION SECTION ═══ */
+.predict-hero{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(6,182,212,.06));border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:28px;margin-top:20px;position:relative;overflow:hidden}
+.predict-hero::before{content:'';position:absolute;top:-50%;right:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 70%);pointer-events:none}
+.predict-hero-header{display:flex;align-items:center;gap:16px;margin-bottom:24px}
+.predict-hero-icon{font-size:36px;background:rgba(99,102,241,.12);width:60px;height:60px;display:flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid rgba(99,102,241,.2)}
+.predict-hero-header h3{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
+.predict-hero-header p{font-size:12px;color:var(--text2);max-width:500px;line-height:1.5}
+.predict-hero-grid{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+
+/* Feature slider cards */
+.predict-features{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.feature-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px 16px;transition:all .25s}
+.feature-card:hover{background:rgba(99,102,241,.06);border-color:rgba(99,102,241,.2)}
+.feature-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.feature-card-name{font-size:11px;color:var(--text2);font-weight:500;display:flex;align-items:center;gap:6px}
+.feature-card-name .f-icon{font-size:13px}
+.feature-card-val{font-size:14px;font-weight:600;color:var(--primary);font-family:'JetBrains Mono',monospace}
+.feature-card input[type=range]{width:100%;height:4px;accent-color:var(--primary);cursor:pointer;-webkit-appearance:none;background:rgba(255,255,255,.08);border-radius:2px;outline:none}
+.feature-card input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 0 8px rgba(99,102,241,.4)}
+
+/* Gauge panel */
+.predict-gauge-panel{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:28px 20px;position:sticky;top:20px}
+.gauge-ring-container{position:relative;width:200px;height:200px;margin-bottom:16px}
+.gauge-svg{width:100%;height:100%;filter:drop-shadow(0 0 12px rgba(99,102,241,.15))}
+.gauge-center-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.gauge-pct{font-size:38px;font-weight:700;color:var(--text);line-height:1;transition:color .4s}
+.gauge-pct-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.gauge-risk-badge{padding:8px 24px;border-radius:24px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.06);color:var(--text3);transition:all .4s;margin-bottom:16px}
+.gauge-risk-badge.LOW{background:rgba(16,185,129,.15);color:#10b981;box-shadow:0 0 20px rgba(16,185,129,.15)}
+.gauge-risk-badge.MEDIUM{background:rgba(245,158,11,.15);color:#f59e0b;box-shadow:0 0 20px rgba(245,158,11,.15)}
+.gauge-risk-badge.HIGH{background:rgba(239,68,68,.15);color:#ef4444;box-shadow:0 0 20px rgba(239,68,68,.15);animation:pulseGlow 2s infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(239,68,68,.15)}50%{box-shadow:0 0 30px rgba(239,68,68,.3)}}
+
+.predict-action-btn{width:100%;padding:14px 28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
+.predict-action-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(99,102,241,.3)}
+.predict-action-btn:active{transform:scale(.97)}
+.predict-action-btn .btn-spark{font-size:16px}
+.predict-action-btn::after{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.15);border-radius:50%;transform:translate(-50%,-50%);transition:width .5s,height .5s}
+.predict-action-btn:active::after{width:300px;height:300px}
+.gauge-footer-note{font-size:10px;color:var(--text3);margin-top:12px;text-align:center;opacity:.7}
 
 .param-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
 .param-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px}
@@ -132,6 +159,6 @@ a{color:var(--primary);text-decoration:none}
 .main{margin-left:0;padding:16px;padding-bottom:80px}
 .chart-grid{grid-template-columns:1fr}
 .kpi-grid{grid-template-columns:repeat(2,1fr)}
-.predict-grid{grid-template-columns:1fr}
-.predict-sliders{grid-template-columns:1fr}
+.predict-hero-grid{grid-template-columns:1fr}
+.predict-features{grid-template-columns:1fr}
 }

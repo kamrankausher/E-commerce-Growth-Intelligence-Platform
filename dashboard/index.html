@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Growth Intelligence — E-commerce Analytics Platform</title>
+<meta name="description" content="ML-powered e-commerce analytics dashboard with churn prediction, A/B testing, and cohort analysis.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+ <div class="sidebar-brand"><h1>📈 Growth Intelligence</h1><p>E-commerce Analytics Platform</p></div>
+ <nav class="sidebar-nav">
+  <div class="nav-item active" data-page="overview"><span class="icon">📊</span>Overview</div>
+  <div class="nav-item" data-page="analytics"><span class="icon">🔬</span>SQL Analytics</div>
+  <div class="nav-item" data-page="ab"><span class="icon">🧪</span>A/B Testing</div>
+  <div class="nav-item" data-page="churn"><span class="icon">🤖</span>Churn Model</div>
+  <div class="nav-item" data-page="ml"><span class="icon">⚡</span>ML Experiments</div>
+ </nav>
+ <div class="sidebar-footer"><div class="api-status"><span class="status-dot" id="statusDot"></span><span id="statusText">Checking API...</span></div></div>
+</aside>
+
+<main class="main">
+
+<!-- PAGE 1: Overview -->
+<div class="page active" id="page-overview">
+ <div class="page-header"><h2>Business KPI Dashboard</h2><p>📌 A real-time snapshot of your e-commerce health. KPIs are calculated exclusively from delivered orders — a critical data hygiene step that prevents inflated metrics from pending or canceled transactions.</p></div>
+ <div class="kpi-grid" id="kpiGrid">
+  <div class="kpi-card"><div class="kpi-icon">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="v-rev"><div class="skeleton" style="width:80%;height:28px"></div></div><div class="kpi-sub">BRL (delivered orders)</div></div>
+  <div class="kpi-card"><div class="kpi-icon">📦</div><div class="kpi-label">Total Orders</div><div class="kpi-value" id="v-ord"><div class="skeleton" style="width:60%;height:28px"></div></div><div class="kpi-sub">Successfully delivered</div></div>
+  <div class="kpi-card"><div class="kpi-icon">👥</div><div class="kpi-label">Unique Customers</div><div class="kpi-value" id="v-cust"><div class="skeleton" style="width:70%;height:28px"></div></div><div class="kpi-sub">Deduplicated by ID</div></div>
+  <div class="kpi-card"><div class="kpi-icon">🛒</div><div class="kpi-label">Avg Order Value</div><div class="kpi-value" id="v-aov"><div class="skeleton" style="width:65%;height:28px"></div></div><div class="kpi-sub">Revenue ÷ Orders</div></div>
+  <div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-label">Avg Review Score</div><div class="kpi-value" id="v-review"><div class="skeleton" style="width:50%;height:28px"></div></div><div class="kpi-sub">Out of 5.0</div></div>
+  <div class="kpi-card"><div class="kpi-icon">⏱️</div><div class="kpi-label">Late Delivery %</div><div class="kpi-value" id="v-late"><div class="skeleton" style="width:55%;height:28px"></div></div><div class="kpi-sub">Arrived after estimate</div></div>
+ </div>
+ <div class="chart-grid">
+  <div class="chart-card"><h3>📈 Monthly Revenue Trend</h3><p class="subtitle">Revenue from delivered orders — identifies seasonal patterns and growth momentum.</p><button class="export-btn" onclick="exportChart('chartRevTrend')">📥 PNG</button><canvas id="chartRevTrend"></canvas></div>
+  <div class="chart-card"><h3>🗺️ Top 10 States by Revenue</h3><p class="subtitle">Geographic revenue distribution — reveals regional dominance and expansion opportunities.</p><button class="export-btn" onclick="exportChart('chartStates')">📥 PNG</button><canvas id="chartStates"></canvas></div>
+  <div class="chart-card"><h3>🏷️ Top 10 Product Categories</h3><p class="subtitle">Best-performing categories by total revenue — informs inventory and marketing strategy.</p><button class="export-btn" onclick="exportChart('chartCats')">📥 PNG</button><canvas id="chartCats"></canvas></div>
+  <div class="chart-card"><h3>💳 Payment Method Distribution</h3><p class="subtitle">How customers pay — critical for checkout optimization and reducing cart abandonment.</p><button class="export-btn" onclick="exportChart('chartPay')">📥 PNG</button><canvas id="chartPay"></canvas></div>
+ </div>
+ <div class="chart-card full" style="margin-bottom:24px"><h3>📋 Recent Orders</h3><p class="subtitle">Latest 20 transactions across all statuses — a quick pulse-check on operations.</p>
+  <table class="data-table" id="ordersTable"><thead><tr><th>Order ID</th><th>Date</th><th>State</th><th>Status</th><th>Value (R$)</th></tr></thead><tbody id="ordersBody"><tr><td colspan="5"><div class="skeleton" style="height:14px;margin:4px 0"></div></td></tr></tbody></table>
+ </div>
+</div>
+
+<!-- PAGE 2: SQL Analytics -->
+<div class="page" id="page-analytics">
+ <div class="page-header"><h2>SQL Analytics Engine</h2><p>🔬 Advanced analytics powered by SQL queries against the SQLite database. These computations — cohort retention, RFM segmentation, and seller performance — demonstrate real-world analytical SQL skills.</p></div>
+ <div class="chart-grid">
+  <div class="chart-card"><h3>📊 Cohort Retention Matrix</h3><p class="subtitle">Tracks how customer cohorts retain over months — the #1 metric for measuring product-market fit.</p><div id="cohortContainer"><div class="skeleton-lg"></div></div></div>
+  <div class="chart-card"><h3>🎯 RFM Customer Segments</h3><p class="subtitle">Segments customers by Recency, Frequency, Monetary value — a classic marketing framework for targeting.</p><button class="export-btn" onclick="exportChart('chartRFM')">📥 PNG</button><canvas id="chartRFM"></canvas></div>
+  <div class="chart-card"><h3>🏪 Seller Performance</h3><p class="subtitle">Revenue vs orders per seller (min 5 orders) — reveals Pareto distribution of marketplace value.</p><button class="export-btn" onclick="exportChart('chartSellers')">📥 PNG</button><canvas id="chartSellers"></canvas></div>
+  <div class="chart-card"><h3>💹 Cumulative Revenue Growth</h3><p class="subtitle">Running total of revenue over time — shows business trajectory and milestone achievement.</p><button class="export-btn" onclick="exportChart('chartCumRev')">📥 PNG</button><canvas id="chartCumRev"></canvas></div>
+ </div>
+</div>
+
+<!-- PAGE 3: A/B Testing -->
+<div class="page" id="page-ab">
+ <div class="page-header"><h2>A/B Test Experiment Results</h2><p>🧪 Statistically rigorous experiment results comparing control vs treatment groups. The engine dynamically selects the appropriate test — Chi-Square for proportions, Welch's t-test for continuous metrics — with confidence intervals and power analysis.</p></div>
+ <div id="abContainer"><div class="skeleton-lg"></div></div>
+</div>
+
+<!-- PAGE 4: Churn Model -->
+<div class="page" id="page-churn">
+ <div class="page-header"><h2>Churn Prediction Intelligence</h2><p>🧠 An XGBoost classifier trained to identify customers at risk of churning. Tuned with Optuna (Bayesian optimization, 25 trials) and evaluated with industry-standard metrics. Churn is defined as no purchase in the trailing 90 days.</p></div>
+ <div class="kpi-grid" id="churnMetrics"><div class="kpi-card"><div class="skeleton" style="height:80px"></div></div><div class="kpi-card"><div class="skeleton" style="height:80px"></div></div><div class="kpi-card"><div class="skeleton" style="height:80px"></div></div><div class="kpi-card"><div class="skeleton" style="height:80px"></div></div><div class="kpi-card"><div class="skeleton" style="height:80px"></div></div></div>
+ <div class="chart-grid">
+  <div class="chart-card"><h3>🏆 Feature Importance (Gain)</h3><p class="subtitle">Which features drive predictions — ranked by XGBoost information gain.</p><button class="export-btn" onclick="exportChart('chartFI')">📥 PNG</button><canvas id="chartFI"></canvas></div>
+  <div class="chart-card"><h3>📊 Churn Risk Distribution</h3><p class="subtitle">How customers distribute across probability buckets — shows overall portfolio risk.</p><button class="export-btn" onclick="exportChart('chartDist')">📥 PNG</button><canvas id="chartDist"></canvas></div>
+ </div>
+ <div class="chart-card full" style="margin-bottom:16px"><h3>🚨 Top 20 High-Risk Customers</h3><p class="subtitle">Customers with the highest predicted churn probability — priority targets for retention campaigns.</p>
+  <table class="data-table"><thead><tr><th>#</th><th>Churn Prob</th><th>Risk</th><th>Frequency</th><th>Monetary (R$)</th><th>Recency (days)</th></tr></thead><tbody id="riskBody"><tr><td colspan="6"><div class="skeleton" style="height:14px;margin:4px 0"></div></td></tr></tbody></table>
+ </div>
+ <div class="predict-section"><h3 style="font-size:16px;font-weight:500;margin-bottom:16px">🔮 Interactive Churn Prediction</h3><p class="subtitle" style="margin-bottom:16px">Adjust customer features to simulate profiles in real-time. The model predicts churn probability instantly.</p>
+  <div class="predict-grid">
+   <div class="predict-sliders" id="predictSliders"></div>
+   <div class="predict-result"><div class="gauge-value" id="gaugeVal">—</div><div class="gauge-label">Churn Probability</div><div class="risk-badge" id="riskBadge" style="visibility:hidden">—</div><button class="predict-btn" id="predictBtn" onclick="doPrediction()">⚡ Predict Churn</button></div>
+  </div>
+ </div>
+</div>
+
+<!-- PAGE 5: ML Experiments -->
+<div class="page" id="page-ml">
+ <div class="page-header"><h2>ML Experiment Tracking</h2><p>⚡ Optuna trial history from Bayesian hyperparameter optimization. Each dot represents one trial — visualize how the optimizer explored the search space and converged on the best configuration.</p></div>
+ <div class="chart-grid">
+  <div class="chart-card"><h3>📈 Optuna Trial History</h3><p class="subtitle">ROC-AUC score across all 25 optimization trials — watch the optimizer converge.</p><button class="export-btn" onclick="exportChart('chartTrials')">📥 PNG</button><canvas id="chartTrials"></canvas></div>
+  <div class="chart-card"><h3>⚙️ Best Hyperparameters</h3><p class="subtitle">Final tuned values selected by Optuna for maximum ROC-AUC performance.</p><div id="paramsContainer"><div class="skeleton-lg"></div></div></div>
+ </div>
+ <div style="text-align:center;padding:20px"><button class="retrain-btn" id="retrainBtn" onclick="doRetrain()">🔄 Retrain Model</button><div class="retrain-status" id="retrainStatus"></div></div>
+</div>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

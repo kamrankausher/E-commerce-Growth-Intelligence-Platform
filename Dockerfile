@@ -25,6 +25,9 @@ ENV PATH=/root/.local/bin:$PATH
 COPY config.py .
 COPY src/ src/
 COPY models/ models/
+COPY dashboard/ dashboard/
+COPY data/ data/
+COPY artifacts/ artifacts/
 
 # Expose API port
 EXPOSE 8000
@@ -33,5 +36,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Run FastAPI
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI (using dynamic PORT for cloud providers, defaults to 8000)
+CMD ["sh", "-c", "uvicorn src.api.app:app --host 0.0.0.0 --port ${PORT:-8000}"]

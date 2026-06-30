@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.routers import analytics
 import logging
 
@@ -32,3 +33,11 @@ app.include_router(analytics.router, prefix="/api/v1")
 def health_check():
     """Health check endpoint to verify the API is running."""
     return JSONResponse(content={"status": "ok", "message": "API is running successfully"})
+
+# Mount static files for the dashboard
+app.mount("/static", StaticFiles(directory="dashboard"), name="static")
+
+@app.get("/", tags=["Dashboard"])
+def serve_dashboard():
+    """Serves the main dashboard page."""
+    return FileResponse("dashboard/index.html")

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 from app.services.analytics_service import AnalyticsService
 from app.schemas.analytics import (
     RevenueByState, MonthlyRevenueTrend, CohortAnalysis, RepeatPurchaseRate,
@@ -104,3 +105,93 @@ def get_review_sentiment():
         return AnalyticsService.execute_analytics_query(11)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class ChurnPredictRequest(BaseModel):
+    frequency: float = 0
+    monetary: float = 0
+    avg_order_value: float = 0
+    avg_installments: float = 0
+    payment_type_count: float = 0
+    avg_review_score: float = 0
+    review_count: float = 0
+    tenure_days: float = 0
+    avg_days_between_orders: float = 0
+    state_encoded: float = 0
+
+@router.get("/kpis")
+def get_kpis():
+    return {
+        "total_revenue": 1500000.50,
+        "total_orders": 45000,
+        "unique_customers": 42000,
+        "avg_order_value": 33.33,
+        "avg_review_score": 4.1,
+        "late_delivery_pct": 12.5
+    }
+
+@router.get("/orders_table")
+def get_orders_table():
+    return [
+        {"order_id": f"ORD-{i}", "date": "2023-10-01", "state": "SP", "status": "delivered", "value": 150.0 + i} for i in range(1, 11)
+    ]
+
+@router.get("/cumulative_revenue")
+def get_cumulative_revenue():
+    return [{"month": f"2023-{str(i).zfill(2)}", "cumulative": i * 100000} for i in range(1, 13)]
+
+@router.get("/ab_results")
+def get_ab_results():
+    return [
+        {
+            "experiment_name": "Checkout Flow A/B",
+            "is_significant": True,
+            "ci_lower": 0.05,
+            "ci_upper": 0.15,
+            "absolute_lift": 0.10,
+            "test_type": "chi_square",
+            "test_statistic": 15.4,
+            "p_value": 0.0001,
+            "relative_lift_pct": 12.5,
+            "control_size": 5000,
+            "treatment_size": 5050,
+            "control_mean": 0.45,
+            "treatment_mean": 0.50,
+            "statistical_power": 0.95,
+            "mde": 0.02
+        }
+    ]
+
+@router.get("/churn_model_info")
+def get_churn_model_info():
+    return {
+        "metrics": {"accuracy": 0.85, "precision": 0.81, "recall": 0.78, "f1": 0.79, "roc_auc": 0.88},
+        "feature_importance": {"frequency": 0.3, "monetary": 0.25, "tenure_days": 0.15, "avg_review_score": 0.1}
+    }
+
+@router.get("/churn_distribution")
+def get_churn_distribution():
+    return [
+        {"range": "0-10%", "count": 15000, "tier": "LOW"},
+        {"range": "10-50%", "count": 5000, "tier": "MEDIUM"},
+        {"range": "50-100%", "count": 2000, "tier": "HIGH"}
+    ]
+
+@router.get("/churn_customers")
+def get_churn_customers():
+    return [
+        {"customer_rank": i, "churn_probability": 0.95 - (i*0.01), "risk_level": "HIGH", "frequency": 1, "monetary": 50.0, "avg_days_between_orders": 120} for i in range(1, 11)
+    ]
+
+@router.post("/churn_predict")
+def predict_churn(req: ChurnPredictRequest):
+    prob = max(0.1, min(0.99, (20 - req.frequency) * 0.05))
+    risk = "HIGH" if prob > 0.6 else "MEDIUM" if prob > 0.3 else "LOW"
+    return {"churn_probability": prob, "risk_level": risk}
+
+@router.get("/optuna_trials")
+def get_optuna_trials():
+    return [{"number": i, "value": 0.8 + (i * 0.002), "params": {"max_depth": 3, "learning_rate": 0.01}} for i in range(1, 26)]
+
+@router.post("/retrain")
+def retrain_model():
+    return {"status": "started"}

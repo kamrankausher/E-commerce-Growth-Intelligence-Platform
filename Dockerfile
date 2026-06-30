@@ -29,7 +29,7 @@ COPY dashboard/ dashboard/
 COPY data/ data/
 
 # Run setup to generate database
-RUN python setup.py
+# Removed RUN python setup.py to prevent OOM on Render (db is in repo)
 
 # Expose API port
 EXPOSE 8000

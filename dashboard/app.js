@@ -42,7 +42,7 @@ requestAnimationFrame(step);}
 function makeGrad(ctx,c1,c2){const g=ctx.createLinearGradient(0,0,0,300);g.addColorStop(0,c1);g.addColorStop(1,'transparent');return g;}
 
 // Health check
-async function checkAPI(){try{await api('/health');apiOnline=true;
+async function checkAPI(){try{const r=await fetch('/health');if(!r.ok)throw new Error();apiOnline=true;
 document.getElementById('statusDot').classList.add('online');
 document.getElementById('statusText').textContent='API Connected';
 }catch(e){apiOnline=false;

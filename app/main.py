@@ -34,6 +34,10 @@ def health_check():
     """Health check endpoint to verify the API is running."""
     return JSONResponse(content={"status": "ok", "message": "API is running successfully"})
 
+@app.get("/debug", tags=["Debug"])
+def debug_routes():
+    return {"routes": [{"path": r.path, "name": r.name} for r in app.routes]}
+
 # Mount static files for the dashboard
 app.mount("/static", StaticFiles(directory="dashboard"), name="static")
 
